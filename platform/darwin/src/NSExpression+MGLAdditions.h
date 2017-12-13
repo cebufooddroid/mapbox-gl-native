@@ -12,6 +12,27 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) std::vector<mbgl::FeatureType> mgl_aggregateFeatureType;
 @property (nonatomic, readonly) mbgl::FeatureIdentifier mgl_featureIdentifier;
 @property (nonatomic, readonly) std::vector<mbgl::FeatureIdentifier> mgl_aggregateFeatureIdentifier;
+@property (nonatomic, readonly) id mgl_expressionArray;
+
+@end
+
+@interface NSString (MGLExpressionAdditions)
+
+@property (nonatomic, readonly) id mgl_expressionArray;
+
+- (NSString *)mgl_append:(NSString *)other;
+
+@end
+
+@interface NSNumber (MGLExpressionAdditions)
+
+@property (nonatomic, readonly) id mgl_expressionArray;
+
+@end
+
+@interface NSArray (MGLExpressionAdditions)
+
+@property (nonatomic, readonly) id mgl_expressionArray;
 
 @end
 

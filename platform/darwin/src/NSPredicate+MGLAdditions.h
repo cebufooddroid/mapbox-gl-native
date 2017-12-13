@@ -11,3 +11,8 @@
 
 @end
 
+@interface NSPredicate (MGLExpressionAdditions)
+
+@property (nonatomic, readonly) id mgl_expressionArray;
+
+@end

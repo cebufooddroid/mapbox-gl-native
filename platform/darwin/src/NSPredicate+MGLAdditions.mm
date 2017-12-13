@@ -228,3 +228,26 @@ public:
 }
 
 @end
+
+@implementation NSPredicate (MGLExpressionAdditions)
+
+- (id)mgl_expressionArray {
+    if ([self isEqual:[NSPredicate predicateWithValue:YES]]) {
+        return @YES;
+    }
+    
+    if ([self isEqual:[NSPredicate predicateWithValue:NO]]) {
+        return @NO;
+    }
+    
+    if ([self.predicateFormat hasPrefix:@"BLOCKPREDICATE("]) {
+        [NSException raise:NSInvalidArgumentException
+                    format:@"Block-based predicates are not supported."];
+    }
+    
+    [NSException raise:NSInvalidArgumentException
+                format:@"Unrecognized predicate type."];
+    return nil;
+}
+
+@end

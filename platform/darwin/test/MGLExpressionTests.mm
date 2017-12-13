@@ -23,6 +23,9 @@
 #define MGLAssertConstantEqualsValueWithAccuracy(constant, value, accuracy, ...) \
     MGLAssertEqualValuesWithAccuracy([NSExpression expressionForConstantValue:constant].mgl_constantMBGLValue, value, accuracy, __VA_ARGS__);
 
+#define MGLConstantExpression(constant) \
+    [NSExpression expressionForConstantValue:constant]
+
 using namespace std::string_literals;
 
 @interface MGLExpressionTests : XCTestCase
@@ -138,6 +141,221 @@ using namespace std::string_literals;
     XCTAssertEqual([NSExpression expressionForConstantValue:@4].mgl_featureType, mbgl::FeatureType::Unknown);
     
     XCTAssertEqual([NSExpression expressionForConstantValue:nil].mgl_featureType, mbgl::FeatureType::Unknown);
+}
+
+#pragma mark - Expression array tests
+
+- (void)testConstantValueExpressionArray {
+    XCTAssertEqualObjects([NSExpression expressionForConstantValue:@1].mgl_expressionArray, @1);
+    XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1"].mgl_expressionArray, @1);
+    XCTAssertEqualObjects([NSExpression expressionForConstantValue:@YES].mgl_expressionArray, @YES);
+    XCTAssertEqualObjects([NSExpression expressionWithFormat:@"TRUE"].mgl_expressionArray, @YES);
+}
+
+- (void)testKeyPathExpressionArray {
+    NSArray *expected = @[@"get", @"highway"];
+    XCTAssertEqualObjects([NSExpression expressionForKeyPath:@"highway"].mgl_expressionArray, expected);
+    XCTAssertEqualObjects([NSExpression expressionWithFormat:@"highway"].mgl_expressionArray, expected);
+}
+
+- (void)testStatisticalExpressionArray {
+    NSExpression *operands = [NSExpression expressionWithFormat:@"%@", @[@1, @2, @2, @3, @4, @7, @9]];
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"average:" arguments:@[operands]];
+        NSArray *expected = @[@"/", @[@"+", @1, @2, @2, @3, @4, @7, @9], @[@"length", @[@1, @2, @2, @3, @4, @7, @9]]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @4);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"sum:" arguments:@[operands]];
+        NSArray *expected = @[@"+", @1, @2, @2, @3, @4, @7, @9];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @28);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"count:" arguments:@[operands]];
+        NSArray *expected = @[@"length", @[@1, @2, @2, @3, @4, @7, @9]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @7);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"min:" arguments:@[operands]];
+        NSArray *expected = @[@"min", @1, @2, @2, @3, @4, @7, @9];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @1);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"max:" arguments:@[operands]];
+        NSArray *expected = @[@"max", @1, @2, @2, @3, @4, @7, @9];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @9);
+    }
+}
+
+- (void)testArithmeticExpressionArray {
+    NSArray *operands = @[MGLConstantExpression(@1), MGLConstantExpression(@1)];
+    {
+        NSArray *expected = @[@"+", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"add:to:" arguments:operands].mgl_expressionArray, expected);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1 + 1"].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"-", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"from:subtract:" arguments:operands].mgl_expressionArray, expected);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1 - 1"].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"*", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"multiply:by:" arguments:operands].mgl_expressionArray, expected);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1 * 1"].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"/", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"divide:by:" arguments:operands].mgl_expressionArray, expected);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1 / 1"].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"%", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"modulus:by:" arguments:operands].mgl_expressionArray, expected);
+        // NSExpression lacks a shorthand operator for modulus.
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"ceiling:" arguments:@[MGLConstantExpression(@1.5)]];
+        NSArray *expectedTruncation = @[@"-", @1.5, @[@"%", @1.5, @1]];
+        NSArray *expected = @[@"+", expectedTruncation, @[@"case", @[@">", @[@"%", @1.5, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"ceiling:" arguments:@[MGLConstantExpression(@-1.5)]];
+        NSArray *expectedTruncation = @[@"-", @-1.5, @[@"%", @-1.5, @1]];
+        NSArray *expected = @[@"+", expectedTruncation, @[@"case", @[@">", @[@"%", @-1.5, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @-1);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"ceiling:" arguments:@[MGLConstantExpression(@2)]];
+        NSArray *expectedTruncation = @[@"-", @2, @[@"%", @2, @1]];
+        NSArray *expected = @[@"+", expectedTruncation, @[@"case", @[@">", @[@"%", @2, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"ceiling:" arguments:@[MGLConstantExpression(@-2)]];
+        NSArray *expectedTruncation = @[@"-", @-2, @[@"%", @-2, @1]];
+        NSArray *expected = @[@"+", expectedTruncation, @[@"case", @[@">", @[@"%", @-2, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @-2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"trunc:" arguments:@[MGLConstantExpression(@1.5)]];
+        NSArray *expected = @[@"-", @1.5, @[@"%", @1.5, @1]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @1);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"trunc:" arguments:@[MGLConstantExpression(@-1.5)]];
+        NSArray *expected = @[@"-", @-1.5, @[@"%", @-1.5, @1]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @-1);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"abs:" arguments:@[MGLConstantExpression(@2)]];
+        NSArray *expected = @[@"*", @2, @[@"case", @[@">", @2, @0], @1, @-1]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"abs:" arguments:@[MGLConstantExpression(@-2)]];
+        NSArray *expected = @[@"*", @-2, @[@"case", @[@">", @-2, @0], @1, @-1]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"floor:" arguments:@[MGLConstantExpression(@1.5)]];
+        NSArray *expectedTruncation = @[@"-", @1.5, @[@"%", @1.5, @1]];
+        NSArray *expected = @[@"-", expectedTruncation, @[@"case", @[@"<", @[@"%", @1.5, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @1);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"floor:" arguments:@[MGLConstantExpression(@-1.5)]];
+        NSArray *expectedTruncation = @[@"-", @-1.5, @[@"%", @-1.5, @1]];
+        NSArray *expected = @[@"-", expectedTruncation, @[@"case", @[@"<", @[@"%", @-1.5, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @-2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"floor:" arguments:@[MGLConstantExpression(@2)]];
+        NSArray *expectedTruncation = @[@"-", @2, @[@"%", @2, @1]];
+        NSArray *expected = @[@"-", expectedTruncation, @[@"case", @[@"<", @[@"%", @2, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @2);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"floor:" arguments:@[MGLConstantExpression(@-2)]];
+        NSArray *expectedTruncation = @[@"-", @-2, @[@"%", @-2, @1]];
+        NSArray *expected = @[@"-", expectedTruncation, @[@"case", @[@"<", @[@"%", @-2, @1], @0], @1, @0]];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @-2);
+    }
+}
+
+- (void)testTrigonometricExpressionArray {
+    NSArray *operands = @[MGLConstantExpression(@1), MGLConstantExpression(@1)];
+    {
+        NSArray *expected = @[@"sqrt", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"sqrt:" arguments:operands].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"ln", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"ln:" arguments:operands].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"^", @1, @1];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"raise:toPower:" arguments:operands].mgl_expressionArray, expected);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1 ** 1"].mgl_expressionArray, expected);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForFunction:@"exp:" arguments:@[MGLConstantExpression(@0)]];
+        NSArray *expected = @[@"^", @[@"e"], @0];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @1);
+    }
+}
+
+- (void)testStringFormattingExpressionArray {
+    {
+        NSExpression *expression = [NSExpression expressionWithFormat:@"FUNCTION('Old', 'mgl_append:', 'MacDonald')"];
+        NSArray *expected = @[@"concat", @"Old", @"MacDonald"];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @"OldMacDonald");
+    }
+    {
+        NSArray *expected = @[@"upcase", @"MacDonald"];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"uppercase:" arguments:@[@"MacDonald"]].mgl_expressionArray, expected);
+    }
+    {
+        NSArray *expected = @[@"downcase", @"MacDonald"];
+        XCTAssertEqualObjects([NSExpression expressionForFunction:@"lowercase:" arguments:@[@"MacDonald"]].mgl_expressionArray, expected);
+    }
+}
+
+- (void)testConditionalExpressionArray {
+    NSPredicate *conditional = [NSPredicate predicateWithFormat:@"1 = 2"];
+    NSExpression *trueExpression = [NSExpression expressionForConstantValue:@YES];
+    NSExpression *falseExpression = [NSExpression expressionForConstantValue:@NO];
+    NSArray *expected = @[@"case", @[@"==", @1, @2], @YES, @NO];
+    {
+        NSExpression *expression = [NSExpression expressionForConditional:conditional trueExpression:trueExpression falseExpression:falseExpression];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @NO);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionWithFormat:@"TERNARY(1 = 2, TRUE, FALSE)"];
+        XCTAssertEqualObjects(expression.mgl_expressionArray, expected);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @NO);
+    }
 }
 
 @end
