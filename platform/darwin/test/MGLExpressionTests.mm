@@ -4,6 +4,11 @@
 
 #import "MGLTypes.h"
 #import "NSExpression+MGLAdditions.h"
+#if TARGET_OS_IPHONE
+#import "UIColor+MGLAdditions.h"
+#else
+#import "NSColor+MGLAdditions.h"
+#endif
 
 #define MGLAssertEqualValues(actual, expected, ...) \
     XCTAssertTrue(actual.is<__typeof__(expected)>()); \
@@ -157,6 +162,20 @@ using namespace std::string_literals;
         XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, @YES);
         XCTAssertEqualObjects([NSExpression expressionWithFormat:@"TRUE"].mgl_jsonExpressionObject, @YES);
         XCTAssertEqualObjects([NSExpression mgl_expressionWithJSONObject:@YES], expression);
+    }
+    {
+        MGLColor *color = [MGLColor mgl_colorWithColor:{ 255.0/255, 239.0/255, 213.0/255, 1 }]; // papayawhip
+        NSExpression *expression = [NSExpression expressionForConstantValue:color];
+        NSArray *jsonExpression = @[@"rgb", @255, @239, @213];
+        XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, jsonExpression);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], color);
+    }
+    {
+        MGLColor *color = [MGLColor mgl_colorWithColor:{ 255.0/255, 239.0/255, 213.0/255, 0.5 }]; // papayawhip
+        NSExpression *expression = [NSExpression expressionForConstantValue:color];
+        NSArray *jsonExpression = @[@"rgba", @255, @239, @213, @0.5];
+        XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, jsonExpression);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], color);
     }
 }
 
