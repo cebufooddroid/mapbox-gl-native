@@ -580,8 +580,14 @@ namespace mbgl {
 }
 
 - (NSExpression *)text {
-#pragma warning Convert to NSExpression.
-    return nil;
+#warning Convert to NSExpression.
+    MGLAssertStyleLayerIsValid();
+
+    auto propertyValue = self.rawLayer->getTextField();
+    if (propertyValue.isUndefined()) {
+        propertyValue = self.rawLayer->getDefaultTextField();
+    }
+    return MGLStyleValueTransformer<std::string, NSString *>().toExpression(propertyValue);
 }
 
 - (void)setTextField:(NSExpression *)textField {

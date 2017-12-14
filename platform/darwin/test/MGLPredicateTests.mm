@@ -574,7 +574,7 @@ namespace mbgl {
 - (void)testComparisonExpressionArray {
     {
         NSArray *expected = @[@"==", @1, @2];
-        XCTAssertEqualObjects([NSPredicate predicateWithFormat:@"1 = 2"].mgl_expressionArray, expected);
+        XCTAssertEqualObjects([NSPredicate predicateWithFormat:@"1 = 2"].mgl_jsonExpressionObject, expected);
     }
 }
 

@@ -13,6 +13,8 @@
 
 @interface NSPredicate (MGLExpressionAdditions)
 
-@property (nonatomic, readonly) id mgl_expressionArray;
++ (instancetype)mgl_predicateWithJSONObject:(id)object;
+
+@property (nonatomic, readonly) id mgl_jsonExpressionObject;
 
 @end

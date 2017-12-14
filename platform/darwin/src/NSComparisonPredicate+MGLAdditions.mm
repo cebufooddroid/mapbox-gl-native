@@ -297,7 +297,7 @@
 
 @implementation NSComparisonPredicate (MGLExpressionAdditions)
 
-- (id)mgl_expressionArray {
+- (id)mgl_jsonExpressionObject {
     NSString *op;
     switch (self.predicateOperatorType) {
         case NSLessThanPredicateOperatorType:
@@ -330,7 +330,7 @@
                         format:@"NSPredicateOperatorType:%lu is not supported.", (unsigned long)self.predicateOperatorType];
     }
     if (op) {
-        return @[op, self.leftExpression.mgl_expressionArray, self.rightExpression.mgl_expressionArray];
+        return @[op, self.leftExpression.mgl_jsonExpressionObject, self.rightExpression.mgl_jsonExpressionObject];
     }
     return nil;
 }
