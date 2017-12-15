@@ -178,6 +178,11 @@ using namespace std::string_literals;
         XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, jsonExpression);
         XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], color);
     }
+    {
+        NSExpression *expression = [NSExpression expressionWithFormat:@"noindex(513)"];
+        XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, @513);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @513);
+    }
 }
 
 - (void)testKeyPathExpressionObject {
