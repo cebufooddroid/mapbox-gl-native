@@ -105,12 +105,7 @@ public:
     }
 
     static optional<GeoJSON> toGeoJSON(const JSValue* value, Error& error) {
-        try {
-            return mapbox::geojson::convert(*value);
-        } catch (const std::exception& ex) {
-            error = { ex.what() };
-            return {};
-        }
+        return {};
     }
 };
 
