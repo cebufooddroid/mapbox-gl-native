@@ -163,6 +163,14 @@ using namespace std::string_literals;
         XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, @YES);
         XCTAssertEqualObjects([NSExpression expressionWithFormat:@"TRUE"].mgl_jsonExpressionObject, @YES);
         XCTAssertEqualObjects([NSExpression mgl_expressionWithJSONObject:@YES], expression);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @YES);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForConstantValue:nil];
+        XCTAssert(expression.mgl_jsonExpressionObject == [NSNull null]);
+        XCTAssert([NSExpression expressionWithFormat:@"nil"].mgl_jsonExpressionObject == [NSNull null]);
+        XCTAssertEqualObjects([NSExpression mgl_expressionWithJSONObject:[NSNull null]], expression);
+        XCTAssertNil([expression expressionValueWithObject:nil context:nil]);
     }
     {
         MGLColor *color = [MGLColor mgl_colorWithColor:{ 255.0/255, 239.0/255, 213.0/255, 1 }]; // papayawhip
