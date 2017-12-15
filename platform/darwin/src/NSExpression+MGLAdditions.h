@@ -47,6 +47,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+@interface NSDictionary (MGLExpressionAdditions)
+
+@property (nonatomic, readonly) id mgl_jsonExpressionObject;
+
+@end
+
 extern NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects);
 
 NS_ASSUME_NONNULL_END

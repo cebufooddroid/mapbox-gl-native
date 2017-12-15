@@ -190,8 +190,20 @@
 @implementation NSArray (MGLExpressionAdditions)
 
 - (id)mgl_jsonExpressionObject {
-#warning Convert NSArray to “array” expression operator.
     return [self valueForKeyPath:@"mgl_jsonExpressionObject"];
+}
+
+@end
+
+@implementation NSDictionary (MGLExpressionAdditions)
+
+- (id)mgl_jsonExpressionObject {
+    NSMutableDictionary *expressionObject = [NSMutableDictionary dictionaryWithCapacity:self.count];
+    [self enumerateKeysAndObjectsUsingBlock:^(id _Nonnull key, id _Nonnull obj, BOOL * _Nonnull stop) {
+        expressionObject[[key mgl_jsonExpressionObject]] = [obj mgl_jsonExpressionObject];
+    }];
+    
+    return expressionObject;
 }
 
 @end
@@ -341,6 +353,11 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
             if ([self.constantValue isEqual:@(M_PI)]) {
                 return @[@"pi"];
             }
+            if ([self.constantValue isKindOfClass:[NSArray class]] ||
+                [self.constantValue isKindOfClass:[NSDictionary class]]) {
+                NSArray *collection = [self.constantValue mgl_jsonExpressionObject];
+                return @[@"literal", collection];
+            }
             if ([self.constantValue isKindOfClass:[MGLColor class]]) {
                 auto color = [self.constantValue mgl_color];
                 if (color.a == 1) {
@@ -358,7 +375,7 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
             NSString *function = self.function;
             NSString *op = MGLExpressionOperatorsByFunctionNames[function];
             if (op) {
-                NSArray *arguments = [self.arguments valueForKeyPath:@"mgl_jsonExpressionObject"];
+                NSArray *arguments = self.arguments.mgl_jsonExpressionObject;
                 return [@[op] arrayByAddingObjectsFromArray:arguments];
             } else if ([function isEqualToString:@"average:"]) {
                 NSExpression *sum = [NSExpression expressionForFunction:@"sum:" arguments:self.arguments];
@@ -391,7 +408,7 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
                 return [NSExpression expressionWithFormat:@"trunc:(%@) - TERNARY(modulus:by:(%@, 1) < 0, 1, 0)",
                         self.arguments.firstObject, self.arguments.firstObject].mgl_jsonExpressionObject;
             } else if ([function isEqualToString:@"stringByAppendingString:"]) {
-                NSArray *arguments = [self.arguments valueForKeyPath:@"mgl_jsonExpressionObject"];
+                NSArray *arguments = self.arguments.mgl_jsonExpressionObject;
                 return [@[@"concat", self.operand.mgl_jsonExpressionObject] arrayByAddingObjectsFromArray:arguments];
             } else if ([function isEqualToString:@"stringValue"]) {
                 return @[@"to-string", self.operand.mgl_jsonExpressionObject];
