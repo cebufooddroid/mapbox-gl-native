@@ -156,6 +156,7 @@ using namespace std::string_literals;
         XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, @1);
         XCTAssertEqualObjects([NSExpression expressionWithFormat:@"1"].mgl_jsonExpressionObject, @1);
         XCTAssertEqualObjects([NSExpression mgl_expressionWithJSONObject:@1], expression);
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:nil], @1);
     }
     {
         NSExpression *expression = [NSExpression expressionForConstantValue:@YES];
