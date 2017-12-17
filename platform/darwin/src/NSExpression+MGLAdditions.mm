@@ -415,6 +415,19 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
             return [NSExpression expressionForVariable:@"zoomLevel"];
         } else if ([op isEqualToString:@"heatmap-density"]) {
             return [NSExpression expressionForVariable:@"heatmapDensity"];
+        } else if ([op isEqualToString:@"let"]) {
+            NSExpression *operand = [NSExpression mgl_expressionWithJSONObject:argumentObjects.lastObject];
+            NSArray *bindingObjects = [argumentObjects subarrayWithRange:NSMakeRange(0, argumentObjects.count - 1)];
+            NSMutableDictionary *context = [NSMutableDictionary dictionaryWithCapacity:bindingObjects.count / 2];
+            NSEnumerator *bindingEnumerator = bindingObjects.objectEnumerator;
+            while (NSString *key = bindingEnumerator.nextObject) {
+                context[key] = [NSExpression mgl_expressionWithJSONObject:bindingEnumerator.nextObject];
+            }
+            return [NSExpression expressionForFunction:operand
+                                          selectorName:@"mgl_expressionWithContext:"
+                                             arguments:@[[NSExpression expressionForConstantValue:context]]];
+        } else if ([op isEqualToString:@"var"]) {
+            return [NSExpression expressionForVariable:argumentObjects.firstObject];
         } else if ([op isEqualToString:@"case"]) {
             NSPredicate *conditional = [NSPredicate mgl_predicateWithJSONObject:argumentObjects.firstObject];
             NSExpression *trueExpression = [NSExpression mgl_expressionWithJSONObject:argumentObjects[1]];
@@ -465,7 +478,7 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
             if ([self.variable isEqualToString:@"zoomLevel"]) {
                 return @[@"zoom"];
             }
-            return nil;
+            return @[@"var", self.variable];
         }
         
         case NSConstantValueExpressionType: {
@@ -584,6 +597,15 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
                     [expressionObject addObject:[stops[key] mgl_jsonExpressionObject]];
                 }
                 return expressionObject;
+            } else if ([function isEqualToString:@"mgl_expressionWithContext:"]) {
+                NSDictionary<NSString *, NSExpression *> *context = self.arguments.firstObject.constantValue;
+                NSMutableArray *expressionObject = [NSMutableArray arrayWithObjects:@"let", nil];
+                [context enumerateKeysAndObjectsUsingBlock:^(id _Nonnull key, NSExpression * _Nonnull obj, BOOL * _Nonnull stop) {
+                    [expressionObject addObject:key];
+                    [expressionObject addObject:obj.mgl_jsonExpressionObject];
+                }];
+                [expressionObject addObject:self.operand.mgl_jsonExpressionObject];
+                return expressionObject;
             } else if ([function isEqualToString:@"median:"] ||
                        [function isEqualToString:@"mode:"] ||
                        [function isEqualToString:@"stddev:"] ||
@@ -650,6 +672,12 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
     }
     
     return nil;
+}
+
+- (NSExpression *)mgl_expressionWithContext:(NSDictionary<NSString *, NSExpression *> *)context {
+    [NSException raise:NSInternalInconsistencyException
+                format:@"Assignment expressions lack underlying Objective-C implementations."];
+    return self;
 }
 
 @end
