@@ -150,6 +150,25 @@ using namespace std::string_literals;
 
 #pragma mark - JSON expression object tests
 
+- (void)testVariableExpressionObject {
+    {
+        NSExpression *expression = [NSExpression expressionForVariable:@"zoomLevel"];
+        XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, @[@"zoom"]);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"$zoomLevel"].mgl_jsonExpressionObject, @[@"zoom"]);
+        XCTAssertEqualObjects([NSExpression mgl_expressionWithJSONObject:@[@"zoom"]], expression);
+        NSMutableDictionary *context = [@{@"zoomLevel": @16} mutableCopy];
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:context], @16);
+    }
+    {
+        NSExpression *expression = [NSExpression expressionForVariable:@"heatmapDensity"];
+        XCTAssertEqualObjects(expression.mgl_jsonExpressionObject, @[@"heatmap-density"]);
+        XCTAssertEqualObjects([NSExpression expressionWithFormat:@"$heatmapDensity"].mgl_jsonExpressionObject, @[@"heatmap-density"]);
+        XCTAssertEqualObjects([NSExpression mgl_expressionWithJSONObject:@[@"heatmap-density"]], expression);
+        NSMutableDictionary *context = [@{@"heatmapDensity": @1} mutableCopy];
+        XCTAssertEqualObjects([expression expressionValueWithObject:nil context:context], @1);
+    }
+}
+
 - (void)testConstantValueExpressionObject {
     {
         NSExpression *expression = [NSExpression expressionForConstantValue:@1];

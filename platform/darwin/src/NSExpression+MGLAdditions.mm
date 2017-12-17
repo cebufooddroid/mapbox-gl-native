@@ -411,6 +411,10 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
             return [NSExpression expressionForFunction:operand
                                           selectorName:@"mgl_stepWithMinimum:stops:"
                                              arguments:@[minimum, stopExpression]];
+        } else if ([op isEqualToString:@"zoom"]) {
+            return [NSExpression expressionForVariable:@"zoomLevel"];
+        } else if ([op isEqualToString:@"heatmap-density"]) {
+            return [NSExpression expressionForVariable:@"heatmapDensity"];
         } else if ([op isEqualToString:@"case"]) {
             NSPredicate *conditional = [NSPredicate mgl_predicateWithJSONObject:argumentObjects.firstObject];
             NSExpression *trueExpression = [NSExpression mgl_expressionWithJSONObject:argumentObjects[1]];
@@ -454,6 +458,16 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
     });
     
     switch (self.expressionType) {
+        case NSVariableExpressionType: {
+            if ([self.variable isEqualToString:@"heatmapDensity"]) {
+                return @[@"heatmap-density"];
+            }
+            if ([self.variable isEqualToString:@"zoomLevel"]) {
+                return @[@"zoom"];
+            }
+            return nil;
+        }
+        
         case NSConstantValueExpressionType: {
             if (!self.constantValue || self.constantValue == [NSNull null]) {
                 return [NSNull null];
@@ -614,7 +628,6 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
         }
         
         case NSEvaluatedObjectExpressionType:
-        case NSVariableExpressionType:
         case NSUnionSetExpressionType:
         case NSIntersectSetExpressionType:
         case NSMinusSetExpressionType:
