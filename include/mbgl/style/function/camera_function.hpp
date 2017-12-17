@@ -73,7 +73,9 @@ public:
     }
 
     bool useIntegerZoom = false;
-    
+
+    const expression::Expression& getExpression() const { return *expression; }
+
     // retained for compatibility with pre-expression function API
     Stops stops;
 

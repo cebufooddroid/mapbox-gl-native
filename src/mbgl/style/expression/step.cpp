@@ -33,6 +33,12 @@ void Step::eachChild(const std::function<void(const Expression&)>& visit) const 
     }
 }
 
+void Step::eachStop(const std::function<void(double, const Expression&)>& visit) const {
+    for (auto it = stops.begin(); it != stops.end(); it++) {
+        visit(it->first, *it->second);
+    }
+}
+
 bool Step::operator==(const Expression& e) const {
     if (auto rhs = dynamic_cast<const Step*>(&e)) {
         return *input == *(rhs->input) && Expression::childrenEqual(stops, rhs->stops);
