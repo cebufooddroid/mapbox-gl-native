@@ -1,7 +1,116 @@
 #import "MGLStyleValue_Private.h"
 
+#include <mbgl/style/expression/expression.hpp>
+
 const MGLStyleFunctionOption MGLStyleFunctionOptionInterpolationBase = @"MGLStyleFunctionOptionInterpolationBase";
 const MGLStyleFunctionOption MGLStyleFunctionOptionDefaultValue = @"MGLStyleFunctionOptionDefaultValue";
+
+id MGLJSONObjectFromMBGLValue(const mbgl::style::expression::Value &value) {
+    if (value.is<mbgl::NullValue>()) {
+        return [NSNull null];
+    }
+    if (value.is<bool>()) {
+        return @(value.get<bool>());
+    }
+    if (value.is<double>()) {
+        return @(value.get<double>());
+    }
+    if (value.is<std::string>()) {
+        return @(value.get<std::string>().c_str());
+    }
+    if (value.is<std::vector<mbgl::style::expression::Value>>()) {
+        auto vector = value.get<std::vector<mbgl::style::expression::Value>>();
+        NSMutableArray *inputs = [NSMutableArray arrayWithCapacity:vector.size()];
+        for (auto value : vector) {
+            [inputs addObject:MGLJSONObjectFromMBGLValue(value)];
+        }
+        return @[];
+    }
+    return nil;
+}
+
+id MGLJSONObjectFromMBGLExpression(const mbgl::style::expression::Expression &mbglExpression) {
+    using namespace mbgl::style::expression;
+    if (auto literalExpression = dynamic_cast<const Literal *>(&mbglExpression)) {
+        auto result = literalExpression->evaluate({ nullptr });
+        return result ? MGLJSONObjectFromMBGLValue(*result) : nil;
+    }
+    if (auto assertExpression = dynamic_cast<const ArrayAssertion *>(&mbglExpression)) {
+#warning Implement array assertion expressions.
+        NSMutableArray *inputs = [NSMutableArray array];
+        assertExpression->eachChild([&](const Expression &child) {
+            [inputs addObject:MGLJSONObjectFromMBGLExpression(child)];
+        });
+        return @[@"literal", inputs.lastObject];
+    }
+    if (auto assertExpression = dynamic_cast<const Assertion *>(&mbglExpression)) {
+#warning Implement assertion expressions.
+        NSMutableArray *inputs = [NSMutableArray array];
+        assertExpression->eachChild([&](const Expression &child) {
+            [inputs addObject:MGLJSONObjectFromMBGLExpression(child)];
+        });
+//        type::Type type = assertExpression->getType();
+//        if (type.is<type::BooleanType>()) {
+//            return inputs.firstObject;
+//        }
+        return inputs.firstObject;
+    }
+    if (auto compoundExpression = dynamic_cast<const CompoundExpressionBase *>(&mbglExpression)) {
+        const std::string name = compoundExpression->getName();
+        mbgl::optional<std::size_t> parameterCount = compoundExpression->getParameterCount();
+        NSMutableArray *expressionObject = parameterCount ? [NSMutableArray arrayWithCapacity:*parameterCount + 1] : [NSMutableArray array];
+        [expressionObject addObject:@(name.c_str())];
+        compoundExpression->eachChild([&](const Expression &child) {
+            [expressionObject addObject:MGLJSONObjectFromMBGLExpression(child)];
+        });
+        return expressionObject;
+    }
+    if (auto stepExpression = dynamic_cast<const Step *>(&mbglExpression)) {
+        auto &input = stepExpression->getInput();
+        NSMutableArray *expressionObject = [NSMutableArray arrayWithObjects:@"step", MGLJSONObjectFromMBGLExpression(*input.get()), nil];
+        stepExpression->eachStop([&](double stop, const Expression &child) {
+            [expressionObject addObject:@(stop)];
+            [expressionObject addObject:MGLJSONObjectFromMBGLExpression(child)];
+        });
+        NSCAssert([expressionObject[2] isEqual:@(-INFINITY)], @"Step expression has no minimum stop.");
+        [expressionObject removeObjectAtIndex:2];
+        return expressionObject;
+    }
+    if (auto interpolateExpression = dynamic_cast<const InterpolateBase *>(&mbglExpression)) {
+        auto &interpolator = interpolateExpression->getInterpolator();
+        auto &input = interpolateExpression->getInput();
+        NSArray *interpolatorObject;
+        if (interpolator.is<ExponentialInterpolator>()) {
+            auto exponentialInterpolator = interpolator.get<ExponentialInterpolator>();
+            interpolatorObject = exponentialInterpolator.base == 1 ? @[@"linear"] : @[@"exponential", @(exponentialInterpolator.base)];
+        } else if (interpolator.is<CubicBezierInterpolator>()) {
+            auto cubicBezierInterpolator = interpolator.get<CubicBezierInterpolator>();
+            auto bezier = cubicBezierInterpolator.ub;
+            interpolatorObject = @[
+                @"cubic-bezier",
+                @(bezier.getP1().first), @(bezier.getP1().second),
+                @(bezier.getP2().first), @(bezier.getP2().second),
+            ];
+        } else {
+            NSCAssert(NO, @"Unrecognized interpolator type.");
+        }
+        NSMutableArray *expressionObject = [NSMutableArray arrayWithObjects:@"interpolate", interpolatorObject, MGLJSONObjectFromMBGLExpression(*input.get()), nil];
+        interpolateExpression->eachStop([&](double stop, const Expression &child) {
+            [expressionObject addObject:@(stop)];
+            [expressionObject addObject:MGLJSONObjectFromMBGLExpression(child)];
+        });
+        return expressionObject;
+    }
+    if (auto caseExpression = dynamic_cast<const Case *>(&mbglExpression)) {
+        NSMutableArray *expressionObject = [NSMutableArray arrayWithObject:@"case"];
+        caseExpression->eachChild([&](const Expression &child) {
+            [expressionObject addObject:MGLJSONObjectFromMBGLExpression(child)];
+        });
+        return expressionObject;
+    }
+    NSCAssert(NO, @"Unrecognized expression type.");
+    return nil;
+}
 
 @implementation MGLStyleValue
 
