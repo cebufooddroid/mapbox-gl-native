@@ -72,8 +72,9 @@ id MGLJSONObjectFromMBGLExpression(const mbgl::style::expression::Expression &mb
             [expressionObject addObject:@(stop)];
             [expressionObject addObject:MGLJSONObjectFromMBGLExpression(child)];
         });
-        NSCAssert([expressionObject[2] isEqual:@(-INFINITY)], @"Step expression has no minimum stop.");
-        [expressionObject removeObjectAtIndex:2];
+        if ([expressionObject[2] isEqual:@(-INFINITY)]) {
+            [expressionObject removeObjectAtIndex:2];
+        }
         return expressionObject;
     }
     if (auto interpolateExpression = dynamic_cast<const InterpolateBase *>(&mbglExpression)) {

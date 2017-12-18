@@ -399,13 +399,21 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
                                              arguments:@[curveTypeExpression, curveParameterExpression, stopExpression]];
         } else if ([op isEqualToString:@"step"]) {
             NSExpression *operand = [NSExpression mgl_expressionWithJSONObject:argumentObjects[0]];
-            NSExpression *minimum = [NSExpression mgl_expressionWithJSONObject:argumentObjects[1]];
-            NSArray *stopExpressions = [argumentObjects subarrayWithRange:NSMakeRange(2, argumentObjects.count - 2)];
+            NSArray *stopExpressions = [argumentObjects subarrayWithRange:NSMakeRange(1, argumentObjects.count - 1)];
+            NSExpression *minimum;
+            if (stopExpressions.count % 2) {
+                minimum = [NSExpression mgl_expressionWithJSONObject:stopExpressions.firstObject];
+                stopExpressions = [stopExpressions subarrayWithRange:NSMakeRange(1, stopExpressions.count - 1)];
+            }
             NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:stopExpressions.count / 2];
             NSEnumerator *stopEnumerator = stopExpressions.objectEnumerator;
             while (NSNumber *key = stopEnumerator.nextObject) {
                 NSExpression *valueExpression = stopEnumerator.nextObject;
-                stops[key] = [NSExpression mgl_expressionWithJSONObject:valueExpression];
+                if (minimum) {
+                    stops[key] = [NSExpression mgl_expressionWithJSONObject:valueExpression];
+                } else {
+                    minimum = [NSExpression mgl_expressionWithJSONObject:valueExpression];
+                }
             }
             NSExpression *stopExpression = [NSExpression expressionForConstantValue:stops];
             return [NSExpression expressionForFunction:operand
