@@ -37,26 +37,32 @@ id MGLJSONObjectFromMBGLExpression(const mbgl::style::expression::Expression &mb
 template <typename MBGLType, typename ObjCType, typename MBGLElement = MBGLType, typename ObjCEnum = ObjCType>
 class MGLStyleValueTransformer {
 public:
+    
+    /// Convert an mbgl property value into an mgl style value
+    NSExpression *toExpression(const mbgl::style::PropertyValue<MBGLType> &mbglValue) {
+        PropertyExpressionEvaluator evaluator;
+        return mbglValue.evaluate(evaluator);
+    }
 
-    // Convert an mbgl property value into an mgl style value
+    /// Convert an mbgl property value into an mgl style value
     MGLStyleValue<ObjCType> *toStyleValue(const mbgl::style::PropertyValue<MBGLType> &mbglValue) {
         PropertyValueEvaluator evaluator;
         return mbglValue.evaluate(evaluator);
     }
-
-    // Convert an mbgl data driven property value into an mgl style value
-    MGLStyleValue<ObjCType> *toDataDrivenStyleValue(const mbgl::style::DataDrivenPropertyValue<MBGLType> &mbglValue) {
-        PropertyValueEvaluator evaluator;
-        return mbglValue.evaluate(evaluator);
-    }
     
-    // Convert an mbgl data driven property value into an mgl style value
+    /// Convert an mbgl data driven property value into an mgl style value
     NSExpression *toExpression(const mbgl::style::DataDrivenPropertyValue<MBGLType> &mbglValue) {
         PropertyExpressionEvaluator evaluator;
         return mbglValue.evaluate(evaluator);
     }
 
-    // Convert an mbgl property value containing an enum into an mgl style value
+    /// Convert an mbgl data driven property value into an mgl style value
+    MGLStyleValue<ObjCType> *toDataDrivenStyleValue(const mbgl::style::DataDrivenPropertyValue<MBGLType> &mbglValue) {
+        PropertyValueEvaluator evaluator;
+        return mbglValue.evaluate(evaluator);
+    }
+
+    /// Convert an mbgl property value containing an enum into an mgl style value
     template <typename MBGLEnum = MBGLType,
               class = typename std::enable_if<std::is_enum<MBGLEnum>::value>::type,
               typename MGLEnum = ObjCEnum,
@@ -65,8 +71,26 @@ public:
         EnumPropertyValueEvaluator<MBGLEnum, ObjCEnum> evaluator;
         return mbglValue.evaluate(evaluator);
     }
+    
+    /**
+     Converts an NSExpression to a non-interpolatable mbgl property value.
+     */
+    mbgl::style::PropertyValue<MBGLType> toPropertyValue(NSExpression *expression) {
+        NSArray *jsonExpression = expression.mgl_jsonExpressionObject;
+        
+        mbgl::style::conversion::Error valueError;
+        auto value = mbgl::style::conversion::convert<mbgl::style::PropertyValue<MBGLType>>(
+            mbgl::style::conversion::makeConvertible(jsonExpression), valueError);
+        if (!value) {
+            [NSException raise:NSInvalidArgumentException
+                        format:@"Invalid property value: %@", @(valueError.message.c_str())];
+            return {};
+        }
+        
+        return *value;
+    }
 
-    // Convert an mgl style value into a non interpolatable (camera with interval stops) mbgl property value
+    /// Convert an mgl style value into a non interpolatable (camera with interval stops) mbgl property value
     mbgl::style::PropertyValue<MBGLType> toPropertyValue(MGLStyleValue<ObjCType> *value) {
         if ([value isKindOfClass:[MGLSourceStyleFunction class]] || [value isKindOfClass:[MGLCompositeStyleFunction class]]) {
             [NSException raise:NSInvalidArgumentException
@@ -96,8 +120,26 @@ public:
             return {};
         }
     }
+    
+    /**
+     Converts an NSExpression to an interpolatable mbgl property value.
+     */
+    mbgl::style::PropertyValue<MBGLType> toInterpolatablePropertyValue(NSExpression *expression) {
+        NSArray *jsonExpression = expression.mgl_jsonExpressionObject;
+        
+        mbgl::style::conversion::Error valueError;
+        auto value = mbgl::style::conversion::convert<mbgl::style::DataDrivenPropertyValue<MBGLType>>(
+            mbgl::style::conversion::makeConvertible(jsonExpression), valueError);
+        if (!value) {
+            [NSException raise:NSInvalidArgumentException
+                        format:@"Invalid property value: %@", @(valueError.message.c_str())];
+            return {};
+        }
+        
+        return *value;
+    }
 
-    // Convert an mgl style value into a non interpolatable (camera with exponential or interval stops) mbgl property value
+    /// Convert an mgl style value into an interpolatable (camera with exponential or interval stops) mbgl property value
     mbgl::style::PropertyValue<MBGLType> toInterpolatablePropertyValue(MGLStyleValue<ObjCType> *value) {
         if ([value isKindOfClass:[MGLSourceStyleFunction class]] || [value isKindOfClass:[MGLCompositeStyleFunction class]]) {
             [NSException raise:NSInvalidArgumentException
@@ -135,8 +177,26 @@ public:
             return {};
         }
     }
+    
+    /**
+     Converts an NSExpression to a data-driven mbgl property value.
+     */
+    mbgl::style::DataDrivenPropertyValue<MBGLType> toDataDrivenPropertyValue(NSExpression *expression) {
+        NSArray *jsonExpression = expression.mgl_jsonExpressionObject;
+        
+        mbgl::style::conversion::Error valueError;
+        auto value = mbgl::style::conversion::convert<mbgl::style::DataDrivenPropertyValue<MBGLType>>(
+            mbgl::style::conversion::makeConvertible(jsonExpression), valueError);
+        if (!value) {
+            [NSException raise:NSInvalidArgumentException
+                        format:@"Invalid property value: %@", @(valueError.message.c_str())];
+            return {};
+        }
+        
+        return *value;
+    }
 
-    // Convert an mgl style value into a mbgl data driven property value
+    /// Convert an mgl style value into a mbgl data-driven property value
     mbgl::style::DataDrivenPropertyValue<MBGLType> toDataDrivenPropertyValue(MGLStyleValue<ObjCType> *value) {
         if ([value isKindOfClass:[MGLConstantStyleValue class]]) {
             return toMBGLConstantValue((MGLConstantStyleValue<ObjCType> *)value);
@@ -151,7 +211,7 @@ public:
         }
     }
 
-    // Convert an mgl style value containing an enum into a mbgl property value containing an enum
+    /// Convert an mgl style value containing an enum into a mbgl property value containing an enum
     template <typename MBGLEnum = MBGLType,
               class = typename std::enable_if<std::is_enum<MBGLEnum>::value>::type,
               typename MGLEnum = ObjCEnum,
@@ -513,7 +573,7 @@ private: // Private utilities for converting from mbgl to mgl values
         return [NSValue value:&mglType withObjCType:@encode(MGLEnum)];
     }
 
-    // Converts mbgl stops to an equivilent NSDictionary for mgl
+    /// Converts mbgl stops to an equivalent NSDictionary for mgl
     static NSMutableDictionary *toConvertedStops(const std::map<float, MBGLType> &mbglStops) {
         NSMutableDictionary *stops = [NSMutableDictionary dictionaryWithCapacity:mbglStops.size()];
         for (const auto &mbglStop : mbglStops) {
@@ -523,7 +583,7 @@ private: // Private utilities for converting from mbgl to mgl values
         return stops;
     }
 
-    // Converts mbgl interval stop categorical values to an equivilant object for mgl
+    /// Converts mbgl interval stop categorical values to an equivalent object for mgl
     class CategoricalValueVisitor {
     public:
         id operator()(const bool value) {
@@ -539,7 +599,7 @@ private: // Private utilities for converting from mbgl to mgl values
         }
     };
 
-    // Converts all types of mbgl property values containing enumerations into an equivilant mgl style value
+    /// Converts all types of mbgl property values containing enumerations into an equivalent mgl style value
     template <typename MBGLEnum = MBGLType, typename MGLEnum = ObjCEnum>
     class EnumPropertyValueEvaluator {
     public:
@@ -559,7 +619,7 @@ private: // Private utilities for converting from mbgl to mgl values
         }
     };
 
-    // Converts all possible mbgl camera function stops into an equivilant mgl style value
+    /// Converts all possible mbgl camera function stops into an equivalent mgl style value
     class CameraFunctionStopsVisitor {
     public:
         id operator()(const mbgl::style::ExponentialStops<MBGLType> &mbglStops) {
@@ -575,7 +635,7 @@ private: // Private utilities for converting from mbgl to mgl values
         }
     };
 
-    // Converts a source function and all possible mbgl source function stops into an equivilant mgl style value
+    /// Converts a source function and all possible mbgl source function stops into an equivalent mgl style value
     class SourceFunctionStopsVisitor {
     public:
         id operator()(const mbgl::style::ExponentialStops<MBGLType> &mbglStops) {
@@ -634,7 +694,7 @@ private: // Private utilities for converting from mbgl to mgl values
         const mbgl::style::SourceFunction<MBGLType> &mbglFunction;
     };
 
-    // Converts a composite function and all possible mbgl stops into an equivilant mgl style value
+    /// Converts a composite function and all possible mbgl stops into an equivalent mgl style value
     class CompositeFunctionStopsVisitor {
     public:
         id operator()(const mbgl::style::CompositeExponentialStops<MBGLType> &mbglStops) {
@@ -694,7 +754,7 @@ private: // Private utilities for converting from mbgl to mgl values
     };
 
 
-    // Converts all types of mbgl property values that don't contain enumerations into an equivilant mgl style value
+    /// Converts all types of mbgl property values that don't contain enumerations into an equivalent mgl style value
     class PropertyValueEvaluator {
     public:
         id operator()(const mbgl::style::Undefined) const {
@@ -722,7 +782,7 @@ private: // Private utilities for converting from mbgl to mgl values
         }
     };
 
-    // Converts all types of mbgl property values into an equivalent NSExpression.
+    /// Converts all types of mbgl property values into an equivalent NSExpression.
     class PropertyExpressionEvaluator {
     public:
         NSExpression *operator()(const mbgl::style::Undefined) const {
