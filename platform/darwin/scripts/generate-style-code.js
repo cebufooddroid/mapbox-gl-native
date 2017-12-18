@@ -284,29 +284,19 @@ global.propertyDoc = function (propertyName, property, layerType, kind) {
             }
             doc += `\n\nThis attribute corresponds to the <a href="https://www.mapbox.com/mapbox-gl-style-spec/#${anchor}"><code>${property.original}</code></a> layout property in the Mapbox Style Specification.`;
         }
-        doc += '\n\nYou can set this property to an instance of:\n\n' +
-            '* `MGLConstantStyleValue`\n';
+        doc += '\n\nYou can set this property to an expression containing any of the following:\n\n' +
+            '* Constant values\n' +
+            '* Predefined functions, including mathematical and string operators\n' +
+            '* Conditional expressions\n' +
+            '* Variable assignments and references to assigned variables\n';
         if (property["property-function"]) {
-            doc += '* `MGLCameraStyleFunction` with an interpolation mode of:\n' +
-                '  * `MGLInterpolationModeExponential`\n' +
-                '  * `MGLInterpolationModeInterval`\n' +
-                '* `MGLSourceStyleFunction` with an interpolation mode of:\n' +
-                '  * `MGLInterpolationModeExponential`\n' +
-                '  * `MGLInterpolationModeInterval`\n' +
-                '  * `MGLInterpolationModeCategorical`\n' +
-                '  * `MGLInterpolationModeIdentity`\n' +
-                '* `MGLCompositeStyleFunction` with an interpolation mode of:\n' +
-                '  * `MGLInterpolationModeExponential`\n' +
-                '  * `MGLInterpolationModeInterval`\n' +
-                '  * `MGLInterpolationModeCategorical`\n';
+            doc += '* Interpolation and step functions applied to the `$zoomLevel` variable and/or feature attributes\n';
+        } else if (property.function === "interpolated") {
+            doc += '* Interpolation and step functions applied to the `$zoomLevel` variable\n\n' +
+                'This property does not support applying interpolation or step functions to feature attributes.';
         } else {
-            if (property.function === "interpolated") {
-                doc += '* `MGLCameraStyleFunction` with an interpolation mode of:\n' +
-                    '  * `MGLInterpolationModeExponential`\n' +
-                    '  * `MGLInterpolationModeInterval`\n';
-            } else {
-                doc += '* `MGLCameraStyleFunction` with an interpolation mode of `MGLInterpolationModeInterval`\n';
-            }
+            doc += '* Step functions applied to the `$zoomLevel` variable\n\n' +
+                'This property does not support applying interpolation functions to the `$zoomLevel` variable or applying interpolation or step functions to feature attributes.';
         }
     }
     return doc;
@@ -320,7 +310,7 @@ global.propertyReqs = function (property, propertiesByName, type) {
             return '`' + camelizeWithLeadingLowercase(req['!']) + '` is set to `nil`';
         } else {
             let name = Object.keys(req)[0];
-            return '`' + camelizeWithLeadingLowercase(name) + '` is set to an `MGLStyleValue` object containing ' + describeValue(req[name], propertiesByName[name], type);
+            return '`' + camelizeWithLeadingLowercase(name) + '` is set to an expression that evaluates to ' + describeValue(req[name], propertiesByName[name], type);
         }
     }).join(', and ') + '. Otherwise, it is ignored.';
 };
@@ -336,11 +326,24 @@ global.parseColor = function (str) {
 };
 
 global.describeValue = function (value, property, layerType) {
+    if (Array.isArray(value) && property.type !== 'array' && property.type !== 'enum') {
+        switch (value[0]) {
+            case 'interpolate': {
+                let curveType = value[1][0];
+                let minimum = describeValue(value[3 + value.length % 2], property, layerType);
+                let maximum = describeValue(_.last(value), property, layerType);
+                return `${curveType.match(/^[aeiou]/i) ? 'an' : 'a'} ${curveType} interpolation expression ranging from ${minimum} to ${maximum}`;
+            }
+            default:
+                throw new Error(`No description available for ${value[0]} expression in ${property.name} of ${layerType}.`);
+        }
+    }
+    
     switch (property.type) {
         case 'boolean':
-            return 'an `NSNumber` object containing ' + (value ? '`YES`' : '`NO`');
+            return value ? '`YES`' : '`NO`';
         case 'number':
-            return 'an `NSNumber` object containing the float `' + value + '`';
+            return 'the float `' + value + '`';
         case 'string':
             if (value === '') {
                 return 'the empty string';
@@ -349,21 +352,20 @@ global.describeValue = function (value, property, layerType) {
         case 'enum':
             let displayValue;
             if (Array.isArray(value)) {
-              let separator = (value.length === 2) ? ' ' : ', ';
-              displayValue = value.map((possibleValue, i) => {
-                let conjunction = '';
-                if (value.length === 2 && i === 0) conjunction = 'either ';
-                if (i === value.length - 1) conjunction = 'or ';
-                let objCType = global.objCType(layerType, property.name);
-                return `${conjunction}\`${objCType}${camelize(possibleValue)}\``;
-              }).join(separator);
+                let separator = (value.length === 2) ? ' ' : ', ';
+                displayValue = value.map((possibleValue, i) => {
+                    let conjunction = '';
+                    if (value.length === 2 && i === 0) conjunction = 'either ';
+                    if (i === value.length - 1) conjunction = 'or ';
+                    let objCType = global.objCType(layerType, property.name);
+                    return `${conjunction}\`${objCType}${camelize(possibleValue)}\``;
+                }).join(separator);
             } else if (property['light-property']) {
-              displayValue = `\`${prefix}Light${camelize(property.name)}${camelize(value)}\``;
+                displayValue = `\`${value}\``;
             } else {
-              let objCType = global.objCType(layerType, property.name);
-              displayValue = `\`${objCType}${camelize(value)}\``;
+                displayValue = `\`${value}\``;
             }
-            return `an \`NSValue\` object containing ${displayValue}`;
+            return displayValue;
         case 'color':
             let color = parseColor(value);
             if (!color) {
@@ -404,7 +406,7 @@ global.describeValue = function (value, property, layerType) {
 };
 
 global.propertyDefault = function (property, layerType) {
-    return 'an `MGLStyleValue` object containing ' + describeValue(property.default, property, layerType);
+    return 'an expression that evaluates to ' + describeValue(property.default, property, layerType);
 };
 
 global.originalPropertyName = function (property) {
