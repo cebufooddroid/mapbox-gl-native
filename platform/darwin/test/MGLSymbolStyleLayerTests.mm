@@ -2,15 +2,12 @@
 // Edit platform/darwin/scripts/generate-style-code.js, then run `make darwin-style-code`.
 
 #import "MGLStyleLayerTests.h"
-#import "../../darwin/src/MGLStyleValue_Private.h"
 #import "../../darwin/src/NSDate+MGLAdditions.h"
 
 #import "MGLStyleLayer_Private.h"
 
 #include <mbgl/style/layers/symbol_layer.hpp>
 #include <mbgl/style/transition_options.hpp>
-#include <mbgl/style/expression/expression.hpp>
-#include <mbgl/style/function/convert.hpp>
 
 @interface MGLSymbolLayerTests : MGLStyleLayerTests
 @end
@@ -926,19 +923,10 @@
             { -INFINITY, "Text Field" },
             { 18, "Text Field" },
         }};
-        mbgl::style::expression::Convert convert;
-        std::unique_ptr<mbgl::style::expression::Expression> expected = convert.toExpression(intervalStops);
+        propertyValue = mbgl::style::CameraFunction<std::string> { intervalStops };
         
-        const mbgl::style::expression::Step *actual = rawLayer->getTextField().match(
-            [&] (const mbgl::style::CameraFunction<std::string> &function) {
-                return dynamic_cast<const mbgl::style::expression::Step *>(function.getExpression());
-            },
-            [&] (const auto &value) {
-                return static_cast<const mbgl::style::expression::Step *>(nullptr);
-            }
-        );
-        XCTAssert(actual && expected && *actual == *expected,
-                  @"Setting text to a step expression should update text-field.");
+        XCTAssertEqual(rawLayer->getTextField(), propertyValue,
+                       @"Setting text to a camera function should update text-field.");
         XCTAssertEqualObjects(layer.text, interpolationExpression,
                               @"text should round-trip camera functions.");
 
