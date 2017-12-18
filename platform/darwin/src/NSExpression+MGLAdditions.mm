@@ -606,7 +606,10 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
                 }
                 return expressionObject;
             } else if ([function isEqualToString:@"mgl_expressionWithContext:"]) {
-                NSDictionary<NSString *, NSExpression *> *context = self.arguments.firstObject.constantValue;
+                id context = self.arguments.firstObject;
+                if ([context isKindOfClass:[NSExpression class]]) {
+                    context = [context constantValue];
+                }
                 NSMutableArray *expressionObject = [NSMutableArray arrayWithObjects:@"let", nil];
                 [context enumerateKeysAndObjectsUsingBlock:^(id _Nonnull key, NSExpression * _Nonnull obj, BOOL * _Nonnull stop) {
                     [expressionObject addObject:key];
