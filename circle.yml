@@ -143,6 +143,14 @@ step-library:
           brew install cmake
           brew install ccache
 
+  - &install-xcpretty-workaround
+      run:
+        name: Install xcpretty fork
+        command: |
+          git clone https://github.com/technology-ebay-de/xcpretty --branch feature/parallel-testing-support
+          gem build xcpretty/xcpretty.gemspec
+          sudo gem install xcpretty*.gem
+
   - &install-macos-node4-dependencies
       run:
         name: Install macOS Node@4 dependencies
@@ -682,6 +690,7 @@ jobs:
     steps:
       - checkout
       - *install-macos-dependencies
+      - *install-xcpretty-workaround
       - *generate-cache-key
       - *restore-cache
       - *reset-ccache-stats
@@ -703,6 +712,7 @@ jobs:
     steps:
       - checkout
       - *install-macos-dependencies
+      - *install-xcpretty-workaround
       - *generate-cache-key
       - *restore-cache
       - *reset-ccache-stats
@@ -722,6 +732,7 @@ jobs:
     steps:
       - checkout
       - *install-macos-dependencies
+      - *install-xcpretty-workaround
       - *generate-cache-key
       - *restore-cache
       - *reset-ccache-stats
@@ -741,6 +752,7 @@ jobs:
     steps:
       - checkout
       - *install-macos-dependencies
+      - *install-xcpretty-workaround
       - *generate-cache-key
       - *restore-cache
       - *reset-ccache-stats
